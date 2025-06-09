@@ -1,3 +1,0 @@
-../Core/Src/bme280_stm32_hal.c:6:8:user_i2c_read	48	static
-../Core/Src/bme280_stm32_hal.c:14:8:user_i2c_write	48	static
-../Core/Src/bme280_stm32_hal.c:22:6:user_delay_us	16	static

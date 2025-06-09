@@ -1,3 +1,0 @@
-../Core/Src/bh1750.c:13:6:BH1750_Init	1
-../Core/Src/bh1750.c:28:6:BH1750_StartMeasurement	1
-../Core/Src/bh1750.c:37:10:BH1750_ReadLux	1
