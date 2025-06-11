@@ -1,0 +1,134 @@
+#include "ff_gen_drv.h"
+#include "main.h"
+
+extern SPI_HandleTypeDef hspi1;
+#define SD_CS_GPIO_Port GPIOB
+#define SD_CS_Pin GPIO_PIN_13
+
+#define CS_HIGH() HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_SET)
+#define CS_LOW()  HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_RESET)
+
+static DSTATUS Stat = STA_NOINIT;
+
+/* Prototypy funkcji */
+DSTATUS USER_initialize (BYTE);
+DSTATUS USER_status (BYTE);
+DRESULT USER_read (BYTE, BYTE*, DWORD, UINT);
+#if _USE_WRITE == 1
+DRESULT USER_write (BYTE, const BYTE*, DWORD, UINT);
+#endif /* _USE_WRITE == 1 */
+#if _USE_IOCTL == 1
+DRESULT USER_ioctl (BYTE, BYTE, void*);
+#endif /* _USE_IOCTL == 1 */
+
+/* Link do sterownika */
+Diskio_drvTypeDef USER_Driver =
+{
+  USER_initialize,
+  USER_status,
+  USER_read,
+#if  _USE_WRITE
+  USER_write,
+#endif
+#if  _USE_IOCTL == 1
+  USER_ioctl,
+#endif
+};
+
+/* Wysylanie i odbieranie pojedynczego bajtu przez SPI */
+static uint8_t SPI_TxRx(uint8_t data)
+{
+    uint8_t rx;
+    HAL_SPI_TransmitReceive(&hspi1, &data, &rx, 1, HAL_MAX_DELAY);
+    return rx;
+}
+
+static void SD_SendCommand(uint8_t cmd, uint32_t arg, uint8_t crc)
+{
+    SPI_TxRx(0xFF);
+    SPI_TxRx(0x40 | cmd);
+    SPI_TxRx(arg >> 24);
+    SPI_TxRx(arg >> 16);
+    SPI_TxRx(arg >> 8);
+    SPI_TxRx(arg);
+    SPI_TxRx(crc);
+}
+
+static uint8_t SD_WaitReady(void)
+{
+    uint8_t res;
+    uint32_t timeout = HAL_GetTick();
+    do {
+        res = SPI_TxRx(0xFF);
+        if ((HAL_GetTick() - timeout) > 500) break;
+    } while (res != 0xFF);
+    return res;
+}
+
+/* Inicjalizacja SD */
+DSTATUS USER_initialize(BYTE lun)
+{
+    uint8_t i, r1;
+
+    CS_HIGH();
+    for (i = 0; i < 10; i++) SPI_TxRx(0xFF); // 80 taktów
+
+    CS_LOW();
+    SD_SendCommand(0, 0, 0x95);  // CMD0: reset
+    for (i = 0; i < 10; i++) {
+        r1 = SPI_TxRx(0xFF);
+        if (r1 == 0x01) break;
+    }
+
+    CS_HIGH();
+    SPI_TxRx(0xFF);
+
+    if (r1 != 0x01) {
+        Stat = STA_NOINIT;
+    } else {
+        Stat &= ~STA_NOINIT;
+    }
+
+    return Stat;
+}
+
+/* Status dysku */
+DSTATUS USER_status(BYTE lun)
+{
+    return Stat;
+}
+
+/* Odczyt sektorów */
+DRESULT USER_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
+{
+    return RES_ERROR; // do implementacji pełnej obsługi SD przez SPI
+}
+
+/* Zapis sektorów */
+#if _USE_WRITE == 1
+DRESULT USER_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
+{
+    return RES_ERROR; // do implementacji pełnej obsługi SD przez SPI
+}
+#endif /* _USE_WRITE == 1 */
+
+/* Komendy sterujące */
+#if _USE_IOCTL == 1
+DRESULT USER_ioctl(BYTE lun, BYTE cmd, void *buff)
+{
+    switch (cmd) {
+    case CTRL_SYNC:
+        return RES_OK;
+    case GET_SECTOR_SIZE:
+        *(WORD*)buff = 512;
+        return RES_OK;
+    case GET_BLOCK_SIZE:
+        *(DWORD*)buff = 1;
+        return RES_OK;
+    case GET_SECTOR_COUNT:
+        *(DWORD*)buff = 32768; // przykładowa liczba sektorów
+        return RES_OK;
+    }
+    return RES_PARERR;
+}
+#endif /* _USE_IOCTL == 1 */

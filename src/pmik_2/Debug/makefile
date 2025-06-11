@@ -9,6 +9,10 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include Middlewares/Third_Party/FatFs/src/option/subdir.mk
+-include Middlewares/Third_Party/FatFs/src/subdir.mk
+-include FATFS/Target/subdir.mk
+-include FATFS/App/subdir.mk
 -include Drivers/STM32F4xx_HAL_Driver/Src/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
@@ -60,8 +64,8 @@ all: main-build
 main-build: pmik_2.elf secondary-outputs
 
 # Tool invocations
-pmik_2.elf pmik_2.map: $(OBJS) $(USER_OBJS) C:\Users\rutra\OneDrive\Desktop\6sem\pmik\pmik4\pmik_2\STM32F401CCUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "pmik_2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\rutra\OneDrive\Desktop\6sem\pmik\pmik4\pmik_2\STM32F401CCUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="pmik_2.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+pmik_2.elf pmik_2.map: $(OBJS) $(USER_OBJS) C:\Users\glekb\Desktop\pmik_c\pmik_2_przyciski2\src\pmik_2\STM32F401CCUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "pmik_2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\glekb\Desktop\pmik_c\pmik_2_przyciski2\src\pmik_2\STM32F401CCUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="pmik_2.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

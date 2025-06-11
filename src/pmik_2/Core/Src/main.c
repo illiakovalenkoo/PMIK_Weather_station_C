@@ -25,6 +25,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "fatfs.h"
+#include "ff.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -91,6 +93,12 @@ volatile uint8_t setting_state = 0; // do ustawiania zegara
 volatile uint32_t last_button1_press = 0;
 volatile uint32_t last_button2_press = 0;
 
+FATFS fs;           // system plików
+FIL file;           // plik
+FRESULT fres;       // status
+UINT bytesWritten;
+extern char USERPath[4];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -125,8 +133,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-
-	HAL_Init();
+  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -147,6 +154,7 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C2_Init();
   MX_USART2_UART_Init();
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
   // Uruchomienie przerwań od timera TIM1 (używane do okresowego odświeżania danych)
     HAL_TIM_Base_Start_IT(&htim1);
@@ -205,8 +213,25 @@ int main(void)
     // Inicjalizacja czujnika światła BH1750 w trybie ciągłego pomiaru o wysokiej rozdzielczości
     BH1750_Init(&hi2c2, BH1750_CONT_HIGH_RES_MODE);
     char msg[] = "Hello from STM32\n";
-        HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-        HAL_Delay(1000);
+    HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+    HAL_Delay(1000);
+
+    if (FATFS_LinkDriver(&USER_Driver, USERPath) == 0)
+    {
+    	if (f_mount(&fs, USERPath, 1) == FR_OK)
+        {
+    		fres = f_open(&file, "log.txt", FA_WRITE | FA_OPEN_ALWAYS);
+            if (fres == FR_OK)
+                {
+                    f_lseek(&file, f_size(&file));  // idź na koniec pliku
+                    char logbuf[128];
+                    sprintf(logbuf, "Start log: %s %s\r\n", dateBuf, timeBuf);
+                    f_write(&file, logbuf, strlen(logbuf), &bytesWritten);
+                    f_close(&file);
+                }
+            }
+        }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -284,7 +309,18 @@ int main(void)
 
 	              BT_SendString(btBuf);  // Przesłanie przez UART2 do modułu HC-05 (Bluetooth)
 
-
+	              // Zapisz do SD
+	              if (f_open(&file, "log.txt", FA_WRITE | FA_OPEN_ALWAYS) == FR_OK)
+	              {
+	                  f_lseek(&file, f_size(&file)); // do końca
+	                  char logbuf[128];
+	                  sprintf(logbuf, "%02d:%02d:%02d %02d-%02d-%02d - %s",
+	                          sTime.Hours, sTime.Minutes, sTime.Seconds,
+	                          sDate.Date, sDate.Month, 2000 + sDate.Year,
+	                          btBuf);
+	                  f_write(&file, logbuf, strlen(logbuf), &bytesWritten);
+	                  f_close(&file);
+	              }
 
 	          }
 	      }
@@ -495,7 +531,7 @@ static void MX_SPI1_Init(void)
   /* SPI1 parameter configuration*/
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_1LINE;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
@@ -611,10 +647,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_13, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PB0 PB1 PB2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2;
+  /*Configure GPIO pins : PB0 PB1 PB2 PB13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
